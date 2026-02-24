@@ -11,12 +11,13 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 print("Loading model...")
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
-    torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32
+    torch_dtype=torch.float32  # use float32 for stability
 )
 
 model.to(DEVICE)
 model.eval()
 print("Model loaded successfully.")
+
 
 def handler(event):
     try:
@@ -30,29 +31,34 @@ def handler(event):
             {"role": "user", "content": prompt}
         ]
 
-        formatted = tokenizer.apply_chat_template(
+        # Proper chat template usage
+        inputs = tokenizer.apply_chat_template(
             messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
-
-        inputs = tokenizer(formatted, return_tensors="pt").to(DEVICE)
+            add_generation_prompt=True,
+            return_tensors="pt"
+        ).to(DEVICE)
 
         with torch.no_grad():
             outputs = model.generate(
-                **inputs,
-                max_new_tokens=512,
-                temperature=0.7,
+                inputs,
+                max_new_tokens=256,
                 do_sample=False,
-                
+                eos_token_id=tokenizer.eos_token_id,
+                pad_token_id=tokenizer.eos_token_id
             )
 
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        clean = response.replace(formatted, "").strip()
+        # Only decode newly generated tokens
+        generated_tokens = outputs[0][inputs.shape[-1]:]
 
-        return {"output": clean}
+        response = tokenizer.decode(
+            generated_tokens,
+            skip_special_tokens=True
+        ).strip()
+
+        return {"output": response}
 
     except Exception as e:
         return {"error": str(e)}
+
 
 runpod.serverless.start({"handler": handler})
