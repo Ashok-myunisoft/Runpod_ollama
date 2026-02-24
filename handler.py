@@ -1,31 +1,41 @@
 import runpod
-import requests
-import time
-import subprocess
-import os
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-# Start Ollama server when container starts
-subprocess.Popen(["ollama", "serve"])
+MODEL_NAME = "Qwen/Qwen2-1.5B-Instruct"
 
-# Wait a bit for server to start
-time.sleep(5)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-# Pull Qwen model (only first time)
-subprocess.run(["ollama", "pull", "qwen:7b"])
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    torch_dtype=torch.float16,
+    device_map="auto"
+)
 
 def handler(event):
-    prompt = event["input"]["prompt"]
+    prompt = event.get("input", {}).get("prompt", "")
 
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": "qwen:7b",
-            "prompt": prompt,
-            "stream": False
-        }
+    messages = [
+        {"role": "system", "content": "You are a helpful AI assistant."},
+        {"role": "user", "content": prompt}
+    ]
+
+    text = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
     )
 
-    return {"output": response.json()["response"]}
+    inputs = tokenizer(text, return_tensors="pt").to("cuda")
 
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=512,
+        temperature=0.7
+    )
+
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    return {"output": response}
+    
 runpod.serverless.start({"handler": handler})
-

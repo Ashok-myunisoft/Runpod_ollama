@@ -1,16 +1,10 @@
-FROM ubuntu:22.04
-
-# Install dependencies
-RUN apt update && apt install -y curl python3 python3-pip
-
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip3 install -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY handler.py .
 
-CMD ["python3", "-u", "handler.py"]
+CMD ["python", "-u", "handler.py"]
