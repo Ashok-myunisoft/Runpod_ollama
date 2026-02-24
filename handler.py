@@ -7,26 +7,37 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # Configuration
 # -----------------------------
 MODEL_NAME = "Qwen/Qwen2-1.5B-Instruct"
-HF_TOKEN = os.environ.get("HF_TOKEN")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-print("Loading tokenizer...")
-tokenizer = AutoTokenizer.from_pretrained(
-    MODEL_NAME,
-    token=HF_TOKEN
-)
+print(f"Using device: {DEVICE}")
 
-print("Loading model...")
-model = AutoModelForCausalLM.from_pretrained(
-    MODEL_NAME,
-    token=HF_TOKEN,
-    torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
-    device_map="auto"
-)
+# -----------------------------
+# Load Model Safely
+# -----------------------------
+try:
+    print("Loading tokenizer...")
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        use_auth_token=HF_TOKEN
+    )
 
-model.eval()
-print("Model loaded successfully.")
+    print("Loading model...")
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        use_auth_token=HF_TOKEN,
+        torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32
+    )
+
+    model.to(DEVICE)
+    model.eval()
+
+    print("Model loaded successfully.")
+
+except Exception as e:
+    print(f"Model loading failed: {e}")
+    raise e
 
 
 # -----------------------------
@@ -34,14 +45,11 @@ print("Model loaded successfully.")
 # -----------------------------
 def handler(event):
     try:
-        # Safe input extraction
-        input_data = event.get("input", {})
-        prompt = input_data.get("prompt", "").strip()
+        prompt = event.get("input", {}).get("prompt", "").strip()
 
         if not prompt:
             return {"error": "Prompt is empty."}
 
-        # Chat formatting for Qwen Instruct
         messages = [
             {"role": "system", "content": "You are a helpful AI assistant."},
             {"role": "user", "content": prompt}
@@ -69,20 +77,16 @@ def handler(event):
 
         full_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        # Remove original prompt from output
+        # Remove prompt echo
         clean_response = full_output.replace(formatted_prompt, "").strip()
 
-        return {
-            "output": clean_response
-        }
+        return {"output": clean_response}
 
     except Exception as e:
-        return {
-            "error": str(e)
-        }
+        return {"error": str(e)}
 
 
 # -----------------------------
-# Start RunPod Serverless
+# Start RunPod
 # -----------------------------
 runpod.serverless.start({"handler": handler})
