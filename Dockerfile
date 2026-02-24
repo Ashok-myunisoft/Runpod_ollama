@@ -7,12 +7,10 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-# Install git (needed for HF sometimes)
+# Install git (needed for HF download)
 RUN apt-get update && apt-get install -y git
 
-# Download model during build
-ENV HF_HOME=/app/hf_cache
-
+# Pre-download model during build
 RUN python -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
 model='Qwen/Qwen2-1.5B-Instruct'; \
 AutoTokenizer.from_pretrained(model); \
