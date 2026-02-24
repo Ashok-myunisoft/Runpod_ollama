@@ -11,7 +11,7 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 print("Loading model...")
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
-    torch_dtype=torch.float32  # use float32 for stability
+    torch_dtype=torch.float32  # float32 for stability
 )
 
 model.to(DEVICE)
@@ -31,7 +31,7 @@ def handler(event):
             {"role": "user", "content": prompt}
         ]
 
-        # Proper chat template usage
+        # Proper Qwen2 chat formatting
         inputs = tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
@@ -47,15 +47,15 @@ def handler(event):
                 pad_token_id=tokenizer.eos_token_id
             )
 
-        # Only decode newly generated tokens
+        # Slice only newly generated tokens
         generated_tokens = outputs[0][inputs.shape[-1]:]
 
-        response = tokenizer.decode(
+        clean = tokenizer.decode(
             generated_tokens,
             skip_special_tokens=True
         ).strip()
 
-        return {"output": response}
+        return {"output": clean}
 
     except Exception as e:
         return {"error": str(e)}
