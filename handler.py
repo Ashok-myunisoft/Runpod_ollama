@@ -43,8 +43,8 @@ def handler(event):
                 **inputs,
                 max_new_tokens=512,
                 temperature=0.7,
-                do_sample=True,
-                top_p=0.9
+                do_sample=False,
+                
             )
 
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
